@@ -14,7 +14,7 @@ pub const MemoryTracker = struct {
     total_freed: usize,
 
     pub fn init(allocator: std.mem.Allocator) MemoryTracker {
-        return .{n
+        return .{
             .allocator = allocator,
             .allocations = std.AutoHashMap(usize, AllocationInfo).init(allocator),
             .total_allocated = 0,
@@ -58,13 +58,15 @@ pub const MemoryTracker = struct {
         }
 
         std.debug.print("--- Memory Leak Report ---\n", .{});
+        var total_leaked: usize = 0;
         var it = self.allocations.iterator();
         while (it.next()) |entry| {
             const info = entry.value_ptr.*;
             std.debug.print("Leak: {d} bytes at address 0x{x} (allocated at {s}:{d})\n", .{ 
                 info.size, info.ptr, info.file, info.line 
             });
+            total_leaked += info.size;
         }
-        std.debug.print("Total leaked: {d} bytes\n", .{self.allocations.count()});
+        std.debug.print("Total leaked: {d} bytes ({d} allocations)\n", .{total_leaked, self.allocations.count()});
     }
 };
