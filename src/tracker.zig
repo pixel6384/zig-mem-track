@@ -28,6 +28,15 @@ pub const MemoryTracker = struct {
         self.allocations.deinit();
     }
 
+    /// Resets the tracker state. Warning: This does not free existing allocations,
+    /// it only clears the tracking metadata. Use with caution.
+    pub fn reset(self: *MemoryTracker) void {
+        self.allocations.clear();
+        self.total_allocated = 0;
+        self.total_freed = 0;
+        self.peak_usage = 0;
+    }
+
     fn updatePeak(self: *MemoryTracker) void {
         const current_usage = self.total_allocated - self.total_freed;
         if (current_usage > self.peak_usage) {

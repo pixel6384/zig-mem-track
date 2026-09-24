@@ -11,25 +11,22 @@ pub fn main() !void {
 
     const tracked_alloc = mem_tracker.allocator();
 
-    std.debug.print("Allocating memory using tracked allocator...\n", .{});
-
-    // Use as a standard allocator
+    std.debug.print("--- Block 1: Normal allocation ---\n", .{});
     const buf1 = try tracked_alloc.alloc(u8, 100);
     const buf2 = try tracked_alloc.alloc(u8, 250);
-
-    std.debug.print("Reallocating buf1...\n", .{});
-    const buf1_new = try tracked_alloc.realloc(buf1, 200);
-
-    std.debug.print("Freeing some memory...\n", .{});
-    tracked_alloc.free(buf1_new);
-
-    // We can still use the manual tracking for better file/line info
-    const buf3 = try mem_tracker.alloc_tracked(50, 8, "main.zig", 30);
-    mem_tracker.free_tracked(buf3, "main.zig", 31);
-
-    // Intentional leak: buf2 is not freed
-    
+    tracked_alloc.free(buf1);
     mem_tracker.printSummary();
-    std.debug.print("Running leak report...\n", .{});
+
+    std.debug.print("\nResetting tracker...\n", .{});
+    mem_tracker.reset();
+
+    std.debug.print("--- Block 2: New tracking session ---\n", .{});
+    const buf3 = try tracked_alloc.alloc(u8, 500);
+    mem_tracker.printSummary();
+    
+    std.debug.print("\nRunning leak report (expecting buf2 and buf3 to be leaked)...\n", .{});
+    // Note: buf2 is untracked now because of reset(), but still exists in memory
     mem_tracker.reportLeaks();
+    
+    tracked_alloc.free(buf3);
 }
