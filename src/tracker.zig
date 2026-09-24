@@ -12,6 +12,7 @@ pub const MemoryTracker = struct {
     allocations: std.AutoHashMap(usize, AllocationInfo),
     total_allocated: usize,
     total_freed: usize,
+    peak_usage: usize,
 
     pub fn init(allocator: std.mem.Allocator) MemoryTracker {
         return .{
@@ -19,11 +20,19 @@ pub const MemoryTracker = struct {
             .allocations = std.AutoHashMap(usize, AllocationInfo).init(allocator),
             .total_allocated = 0,
             .total_freed = 0,
+            .peak_usage = 0,
         };
     }
 
     pub fn deinit(self: *MemoryTracker) void {
         self.allocations.deinit();
+    }
+
+    fn updatePeak(self: *MemoryTracker) void {
+        const current_usage = self.total_allocated - self.total_freed;
+        if (current_usage > self.peak_usage) {
+            self.peak_usage = current_usage;
+        }
     }
 
     /// Returns a std.mem.Allocator that wraps the tracker
@@ -52,6 +61,7 @@ pub const MemoryTracker = struct {
         }) catch return null;
         
         self.total_allocated += len;
+        self.updatePeak();
         return bytes.ptr;
     }
 
@@ -80,6 +90,7 @@ pub const MemoryTracker = struct {
         
         self.total_freed += old_size;
         self.total_allocated += new_len;
+        self.updatePeak();
         return new_ptr_slice.ptr;
     }
 
@@ -107,6 +118,7 @@ pub const MemoryTracker = struct {
         });
         
         self.total_allocated += size;
+        self.updatePeak();
         return bytes;
     }
 
@@ -129,6 +141,7 @@ pub const MemoryTracker = struct {
         });
         
         self.total_allocated += new_size;
+        self.updatePeak();
         return new_bytes;
     }
 
@@ -148,6 +161,7 @@ pub const MemoryTracker = struct {
         std.debug.print("Total Allocated: {d} bytes\n", .{self.total_allocated});
         std.debug.print("Total Freed:     {d} bytes\n", .{self.total_freed});
         std.debug.print("Current Usage:   {d} bytes\n", .{current_usage});
+        std.debug.print("Peak Usage:      {d} bytes\n", .{self.peak_usage});
         std.debug.print("Active Allocs:   {d}\n", .{self.allocations.count()});
         std.debug.print("----------------------\n", .{});
     }
