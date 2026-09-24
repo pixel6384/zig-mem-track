@@ -5,6 +5,7 @@ pub const AllocationInfo = struct {
     size: usize,
     line: u32,
     file: []const u8,
+    ret_addr: usize,
 };
 
 pub const MemoryTracker = struct {
@@ -66,7 +67,8 @@ pub const MemoryTracker = struct {
             .ptr = ptr, 
             .size = len, 
             .line = 0, 
-            .file = "unknown" 
+            .file = "unknown",
+            .ret_addr = ret_addr,
         }) catch return null;
         
         self.total_allocated += len;
@@ -94,7 +96,8 @@ pub const MemoryTracker = struct {
             .ptr = new_ptr_val, 
             .size = new_len, 
             .line = 0, 
-            .file = "unknown" 
+            .file = "unknown",
+            .ret_addr = ret_addr,
         }) catch return null;
         
         self.total_freed += old_size;
@@ -111,7 +114,7 @@ pub const MemoryTracker = struct {
             self.total_freed += info.size;
             self.allocator.free(ptr[0..info.size]);
         } else {
-            std.debug.print("Warning: Attempted to free untracked pointer at 0x{x}\n", .{ptr_val});
+            std.debug.print("Warning: Attempted to free untracked pointer at 0x{x} (from 0x{x})\n", .{ptr_val, ret_addr});
         }
     }
 
@@ -123,7 +126,8 @@ pub const MemoryTracker = struct {
             .ptr = ptr, 
             .size = size, 
             .line = line, 
-            .file = file 
+            .file = file, 
+            .ret_addr = 0,
         });
         
         self.total_allocated += size;
@@ -146,7 +150,8 @@ pub const MemoryTracker = struct {
             .ptr = new_ptr, 
             .size = new_size, 
             .line = line, 
-            .file = file 
+            .file = file, 
+            .ret_addr = 0,
         });
         
         self.total_allocated += new_size;
@@ -186,9 +191,15 @@ pub const MemoryTracker = struct {
         var it = self.allocations.iterator();
         while (it.next()) |entry| {
             const info = entry.value_ptr.*;
-            std.debug.print("Leak: {d} bytes at address 0x{x} (allocated at {s}:{d})\n", .{ 
-                info.size, info.ptr, info.file, info.line 
-            });
+            if (info.file eq "unknown") {
+                std.debug.print("Leak: {d} bytes at address 0x{x} (allocated at return addr 0x{x})\n", .{ 
+                    info.size, info.ptr, info.ret_addr 
+                });
+            } else {
+                std.debug.print("Leak: {d} bytes at address 0x{x} (allocated at {s}:{d})\n", .{ 
+                    info.size, info.ptr, info.file, info.line 
+                });
+            }
             total_leaked += info.size;
         }
         std.debug.print("Total leaked: {d} bytes ({d} allocations)\n", .{total_leaked, self.allocations.count()});
