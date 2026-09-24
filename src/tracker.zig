@@ -29,6 +29,10 @@ pub const MemoryTracker = struct {
         self.allocations.deinit();
     }
 
+    pub fn count(self: *MemoryTracker) usize {
+        return self.allocations.count();
+    }
+
     /// Resets the tracker state. Warning: This does not free existing allocations,
     /// it only clears the tracking metadata. Use with caution.
     pub fn reset(self: *MemoryTracker) void {
@@ -176,7 +180,7 @@ pub const MemoryTracker = struct {
         std.debug.print("Total Freed:     {d} bytes\n", .{self.total_freed});
         std.debug.print("Current Usage:   {d} bytes\n", .{current_usage});
         std.debug.print("Peak Usage:      {d} bytes\n", .{self.peak_usage});
-        std.debug.print("Active Allocs:   {d}\n", .{self.allocations.count()});
+        std.debug.print("Active Allocs:   {d}\n", .{self.count()});
         std.debug.print("----------------------\n", .{});
     }
 
@@ -191,7 +195,7 @@ pub const MemoryTracker = struct {
         var it = self.allocations.iterator();
         while (it.next()) |entry| {
             const info = entry.value_ptr.*;
-            if (info.file eq "unknown") {
+            if (std.mem.eq(u8, info.file, "unknown")) {
                 std.debug.print("Leak: {d} bytes at address 0x{x} (allocated at return addr 0x{x})\n", .{ 
                     info.size, info.ptr, info.ret_addr 
                 });
