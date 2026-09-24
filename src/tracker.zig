@@ -41,9 +41,6 @@ pub const MemoryTracker = struct {
     fn alloc(ctx: *anyopaque, len: usize, ptr_align: u8, ret_addr: usize) ?[*]u8 {
         const self: *MemoryTracker = @ptrCast(@alignCast(ctx));
         
-        // Note: In a real-world scenario, we'd use ret_addr to resolve file/line
-        // via debug symbols. For this library, we provide a manual helper or
-        // mark it as "unknown" when using the generic interface.
         const bytes = self.allocator.allocWithOptions(u8, ptr_align, len) catch return null;
         const ptr = @intFromPtr(bytes.ptr);
         
@@ -60,21 +57,19 @@ pub const MemoryTracker = struct {
 
     fn realloc(ctx: *anyopaque, ptr: [*]u8, ptr_align: u8, new_len: usize, ret_addr: usize) ?[*]u8 {
         const self: *MemoryTracker = @ptrCast(@alignCast(ctx));
-        const old_ptr = @intFromPtr(ptr);
+        const old_ptr_val = @intFromPtr(ptr);
         
-        const old_slice = ptr[0..0] ++ ptr[0..0]; // This is a simplification for the interface
-        // Since the VTable resize provides a pointer, we must treat it carefully
-        // In this implementation, we leverage the internal allocator's realloc
+        // Find old size to calculate total_freed correctly
+        const old_size = if (self.allocations.get(old_ptr_val)) |info| info.size else 0;
+
+        // The VTable resize method requires us to pass the original pointer and current length
+        // to the underlying allocator. Since we track size in the map, we use that.
+        const old_slice = ptr[0..old_size];
+        const new_ptr_slice = self.allocator.reallocWithOptions(u8, ptr_align, old_slice, new_len) catch return null;
         
-        // We first find the old size to update totals
-        if (self.allocations.get(old_ptr)) |info| {
-            self.total_freed += info.size;
-        }
+        const new_ptr_val = @intFromPtr(new_ptr_slice.ptr);
 
-        const new_ptr = self.allocator.reallocWithOptions(u8, ptr_align, ptr[0..0], new_len) catch return null;
-        const new_ptr_val = @intFromPtr(new_ptr.ptr);
-
-        _ = self.allocations.remove(old_ptr);
+        _ = self.allocations.remove(old_ptr_val);
         
         self.allocations.put(new_ptr_val, .{ 
             .ptr = new_ptr_val, 
@@ -83,8 +78,9 @@ pub const MemoryTracker = struct {
             .file = "unknown" 
         }) catch return null;
         
+        self.total_freed += old_size;
         self.total_allocated += new_len;
-        return new_ptr.ptr;
+        return new_ptr_slice.ptr;
     }
 
     fn free(ctx: *anyopaque, ptr: [*]u8, ptr_align: u8, ret_addr: usize) void {
@@ -93,7 +89,6 @@ pub const MemoryTracker = struct {
         
         if (self.allocations.remove(ptr_val)) |info| {
             self.total_freed += info.size;
-            // We must reconstruct a slice for the underlying allocator
             self.allocator.free(ptr[0..info.size]);
         } else {
             std.debug.print("Warning: Attempted to free untracked pointer at 0x{x}\n", .{ptr_val});
