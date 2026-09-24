@@ -12,14 +12,18 @@ pub fn main() !void {
     std.debug.print("Allocating memory...\n", .{});
 
     // Simulate some allocations
-    const buf1 = try mem_tracker.alloc(100, 8, "main.zig", 15);
+    var buf1 = try mem_tracker.alloc(100, 8, "main.zig", 15);
     const buf2 = try mem_tracker.alloc(250, 8, "main.zig", 16);
 
+    std.debug.print("Reallocating buf1...\n", .{});
+    buf1 = try mem_tracker.realloc(buf1, 8, 200, "main.zig", 21);
+
     std.debug.print("Freeing some memory...\n", .{});
-    mem_tracker.free(buf1, "main.zig", 20);
+    mem_tracker.free(buf1, "main.zig", 24);
 
     // Intentional leak: buf2 is not freed
     
+    mem_tracker.printSummary();
     std.debug.print("Running leak report...\n", .{});
     mem_tracker.reportLeaks();
 }

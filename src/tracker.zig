@@ -41,6 +41,28 @@ pub const MemoryTracker = struct {
         return bytes;
     }
 
+    pub fn realloc(self: *MemoryTracker, bytes: []u8, alignment: u8, new_size: usize, file: []const u8, line: u32) ![]u8 {
+        const old_ptr = @intFromPtr(bytes.ptr);
+        const new_bytes = try self.allocator.reallocWithOptions(u8, alignment, bytes, new_size);
+        const new_ptr = @intFromPtr(new_bytes.ptr);
+
+        if (self.allocations.remove(old_ptr)) |old_info| {
+            self.total_freed += old_info.size;
+        } else {
+            std.debug.print("Warning: Reallocating untracked pointer at {s}:{d}\n", .{ file, line });
+        }
+
+        try self.allocations.put(new_ptr, .{ 
+            .ptr = new_ptr, 
+            .size = new_size, 
+            .line = line, 
+            .file = file 
+        });
+        
+        self.total_allocated += new_size;
+        return new_bytes;
+    }
+
     pub fn free(self: *MemoryTracker, bytes: []u8, file: []const u8, line: u32) void {
         const ptr = @intFromPtr(bytes.ptr);
         if (self.allocations.remove(ptr)) |info| {
@@ -49,6 +71,16 @@ pub const MemoryTracker = struct {
         } else {
             std.debug.print("Warning: Attempted to free untracked pointer at {s}:{d}\n", .{ file, line });
         }
+    }
+
+    pub fn printSummary(self: *MemoryTracker) void {
+        const current_usage = self.total_allocated - self.total_freed;
+        std.debug.print("--- Memory Summary ---\n", .{});
+        std.debug.print("Total Allocated: {d} bytes\n", .{self.total_allocated});
+        std.debug.print("Total Freed:     {d} bytes\n", .{self.total_freed});
+        std.debug.print("Current Usage:   {d} bytes\n", .{current_usage});
+        std.debug.print("Active Allocs:   {d}\n", .{self.allocations.count()});
+        std.debug.print("----------------------\n", .{});
     }
 
     pub fn reportLeaks(self: *MemoryTracker) void {
