@@ -19,7 +19,9 @@ pub fn main() !void {
         std.debug.print("Verified buf1 size: {d} bytes\n", .{info.size});
     }
 
+    std.debug.print("Active allocations before free: {d}\n", .{mem_tracker.count()});
     tracked_alloc.free(buf1);
+    std.debug.print("Active allocations after free: {d}\n", .{mem_tracker.count()});
     mem_tracker.printSummary();
 
     std.debug.print("\nResetting tracker...\n", .{});
