@@ -33,6 +33,12 @@ pub const MemoryTracker = struct {
         return self.allocations.count();
     }
 
+    /// Returns metadata for a given pointer if it is currently tracked.
+    pub fn getAllocationInfo(self: *MemoryTracker, ptr: anyptr) ?AllocationInfo {
+        const ptr_val = @intFromPtr(ptr);
+        return self.allocations.get(ptr_val);
+    }
+
     /// Resets the tracker state. Warning: This does not free existing allocations,
     /// it only clears the tracking metadata. Use with caution.
     pub fn reset(self: *MemoryTracker) void {

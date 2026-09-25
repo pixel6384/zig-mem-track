@@ -14,6 +14,11 @@ pub fn main() !void {
     std.debug.print("--- Block 1: Normal allocation ---\n", .{});
     const buf1 = try tracked_alloc.alloc(u8, 100);
     const buf2 = try tracked_alloc.alloc(u8, 250);
+    
+    if (mem_tracker.getAllocationInfo(buf1)) |info| {
+        std.debug.print("Verified buf1 size: {d} bytes\n", .{info.size});
+    }
+
     tracked_alloc.free(buf1);
     mem_tracker.printSummary();
 
