@@ -33,6 +33,10 @@ pub const MemoryTracker = struct {
         return self.allocations.count();
     }
 
+    pub fn getCurrentUsage(self: *MemoryTracker) usize {
+        return self.total_allocated - self.total_freed;
+    }
+
     /// Returns metadata for a given pointer if it is currently tracked.
     pub fn getAllocationInfo(self: *MemoryTracker, ptr: anyptr) ?AllocationInfo {
         const ptr_val = @intFromPtr(ptr);
@@ -49,7 +53,7 @@ pub const MemoryTracker = struct {
     }
 
     fn updatePeak(self: *MemoryTracker) void {
-        const current_usage = self.total_allocated - self.total_freed;
+        const current_usage = self.getCurrentUsage();
         if (current_usage > self.peak_usage) {
             self.peak_usage = current_usage;
         }
@@ -180,7 +184,7 @@ pub const MemoryTracker = struct {
     }
 
     pub fn printSummary(self: *MemoryTracker) void {
-        const current_usage = self.total_allocated - self.total_freed;
+        const current_usage = self.getCurrentUsage();
         std.debug.print("--- Memory Summary ---\n", .{});
         std.debug.print("Total Allocated: {d} bytes\n", .{self.total_allocated});
         std.debug.print("Total Freed:     {d} bytes\n", .{self.total_freed});
@@ -191,7 +195,8 @@ pub const MemoryTracker = struct {
     }
 
     pub fn reportLeaks(self: *MemoryTracker) void {
-        if (self.allocations.count() == 0) {
+        const leak_count = self.allocations.count();
+        if (leak_count == 0) {
             std.debug.print("No memory leaks detected.\n", .{});
             return;
         }
@@ -212,6 +217,6 @@ pub const MemoryTracker = struct {
             }
             total_leaked += info.size;
         }
-        std.debug.print("Total leaked: {d} bytes ({d} allocations)\n", .{total_leaked, self.allocations.count()});
+        std.debug.print("Total leaked: {d} bytes across {d} allocations\n", .{total_leaked, leak_count});
     }
 };
